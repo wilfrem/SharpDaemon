@@ -8,3 +8,4 @@ C#でDaemonを作るためのライブラリです。Windowsでもビルドは�
 
 + コンソールプロジェクトを作る
 + Mainで起動処理を行ったあと、Daemon.Instance.WaitForUnixSignalを呼び出してプロセス終了を待つ(WindowsだとInvalidOperationExceptionが飛ぶので、catchしてConsole.ReadKeyでもしてあげてください)
++ あとは/etc/init/下に.confファイルを作ってstart-stop-daemonを使ってdaemon化しましょう(詳細はググれ)
