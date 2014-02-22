@@ -37,46 +37,41 @@ namespace Daemonizer
     /// </summary>
     public class Daemon
     {
-        PlatformID platform;
-        Assembly posixAsm;
-        Type unixSignalType, signumType;
-        MethodInfo unixSignalWaitAny;
+        readonly PlatformID _platform;
+        Assembly _posixAsm;
+        Type _unixSignalType, _signumType;
+        MethodInfo _unixSignalWaitAny;
 
-        Array signals;
+        Array _signals;
 
-        static Daemon instance;
+        static Daemon _instance;
         public static Daemon Instance
         {
-            get
-            {
-                if (instance == null)
-                    instance = new Daemon();
-                return instance;
-            }
+            get { return _instance ?? (_instance = new Daemon()); }
         }
 
         private Daemon()
         {
-            platform = System.Environment.OSVersion.Platform;
+            _platform = Environment.OSVersion.Platform;
             Setup();
         }
 
         private void Setup()
         {
-            if (platform != PlatformID.Unix && platform != PlatformID.MacOSX)
+            if (_platform != PlatformID.Unix && _platform != PlatformID.MacOSX)
                 throw new InvalidOperationException("not unix platform");
             //Unixでデーモン化するための機構
             //静的にアセンブリを読み込むとコンパイラの設定が面倒なので動的に
 
-            posixAsm = Assembly.Load("Mono.Posix, Version=4.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756");//MonoのPosixライブラリを読み込む
-            unixSignalType = posixAsm.GetType("Mono.Unix.UnixSignal");//UnixSignal型の作成
-            unixSignalWaitAny = unixSignalType.GetMethod("WaitAny", new Type[1] { unixSignalType.MakeArrayType() });//UnixSignal.WaitAny関数
-            signumType = posixAsm.GetType("Mono.Unix.Native.Signum");//Signum型の作成
+            _posixAsm = Assembly.Load("Mono.Posix, Version=4.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756");//MonoのPosixライブラリを読み込む
+            _unixSignalType = _posixAsm.GetType("Mono.Unix.UnixSignal");//UnixSignal型の作成
+            _unixSignalWaitAny = _unixSignalType.GetMethod("WaitAny", new[] { _unixSignalType.MakeArrayType() });//UnixSignal.WaitAny関数
+            _signumType = _posixAsm.GetType("Mono.Unix.Native.Signum");//Signum型の作成
             //Signalクラスを立てる
 
-            signals = Array.CreateInstance(unixSignalType, 2);
-            signals.SetValue(Activator.CreateInstance(unixSignalType, signumType.GetField("SIGINT").GetValue(null)), 0);
-            signals.SetValue(Activator.CreateInstance(unixSignalType, signumType.GetField("SIGTERM").GetValue(null)), 1);
+            _signals = Array.CreateInstance(_unixSignalType, 2);
+            _signals.SetValue(Activator.CreateInstance(_unixSignalType, _signumType.GetField("SIGINT").GetValue(null)), 0);
+            _signals.SetValue(Activator.CreateInstance(_unixSignalType, _signumType.GetField("SIGTERM").GetValue(null)), 1);
         }
         
         /// <summary>
@@ -84,18 +79,18 @@ namespace Daemonizer
         /// </summary>
         public void WaitForUnixSignal()
         {
-            if (platform != PlatformID.Unix && platform != PlatformID.MacOSX)
+            if (_platform != PlatformID.Unix && _platform != PlatformID.MacOSX)
             {
                 throw new InvalidOperationException("not unix platform");
             }
             // Wait for a unix signal
             for (bool exit = false; !exit; )
             {
-                int id = (int)unixSignalWaitAny.Invoke(null, new object[1] { signals });
+                var id = (int)_unixSignalWaitAny.Invoke(null, new object[] { _signals });
 
-                if (id >= 0 && id < signals.Length)
+                if (id >= 0 && id < _signals.Length)
                 {
-                    dynamic val = signals.GetValue(id);
+                    dynamic val = _signals.GetValue(id);
                     if (val.IsSet) exit = true;
                 }
             }
